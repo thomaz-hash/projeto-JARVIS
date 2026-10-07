@@ -1,0 +1,75 @@
+import os
+import speech_recognition as sr
+import pyttsx3
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# Carrega as variáveis do arquivo .env
+load_dotenv()
+
+# Inicializa o cliente da OpenAI usando a chave protegida
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Inicializa o sintetizador de voz (Text-to-Speech)
+engine = pyttsx3.init()
+voices = engine.getProperty('voices')
+for voice in voices:
+    if "portuguese" in voice.languages or "pt" in voice.id.lower():
+        engine.setProperty('voice', voice.id)
+        break
+
+engine.setProperty('rate', 180)
+
+def falar(texto):
+    print(f"J.A.R.V.I.S.: {texto}")
+    engine.say(texto)
+    engine.runAndWait()
+
+def ouvir_microfone():
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("\n[Ouvindo... Diga algo]")
+        r.adjust_for_ambient_noise(source, duration=0.8)
+        audio = r.listen(source)
+    
+    try:
+        print("[Processando áudio...]")
+        comando = r.recognize_google(audio, language="pt-BR")
+        print(f"Você disse: {comando}")
+        return comando.lower()
+    except sr.UnknownValueError:
+        print("Não consegui entender o áudio.")
+        return ""
+    except sr.RequestError:
+        print("Erro de conexão com o serviço de reconhecimento.")
+        return ""
+
+def pensar_com_ia(pergunta):
+    try:
+        resposta = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "Você é o J.A.R.V.I.S., um assistente virtual altamente inteligente, formal, elegante, sarcástico na medida certa e prestativo, criado nos moldes do assistente do Homem de Ferro. Responda de forma concisa em português."
+                },
+                {"role": "user", "content": pergunta}
+            ]
+        )
+        return resposta.choices[0].message.content
+    except Exception as e:
+        return "Desculpe senhor, ocorreu um erro nos meus servidores."
+
+if __name__ == "__main__":
+    falar("Sistemas online. J.A.R.V.I.S. ativado e à sua disposição, senhor.")
+    
+    while True:
+        texto_usuario = ouvir_microfone()
+        
+        if texto_usuario:
+            if "desligar" in texto_usuario or "sair" in texto_usuario:
+                falar("Desativando sistemas. Até logo, senhor.")
+                break
+            
+            resposta_ia = pensar_com_ia(texto_usuario)
+            falar(resposta_ia)
